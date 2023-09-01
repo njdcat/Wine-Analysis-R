@@ -1,0 +1,303 @@
+---
+title: 'DAT 301 | Project #1 | Predicting Red & White Wine Quality'
+author: "Kari Thornton"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(data.table)
+library(tidyverse)
+library(plotly)
+library(tibble)
+library(car)
+library(jtools)
+library(kableExtra)
+library(broom.mixed)
+library(gridExtra)
+library(treemapify)
+library(huxtable)
+library(kableExtra)
+library(flextable)
+```
+
+## Introduction
+
+The goal of this project is to try and accurately predict the quality of a given red or white wine of the Portuguese "Vinho Verde" wine based on a number of given characteristics using multivariate regression analysis. Although the basic steps of wine making are concrete, there are different methods implemented that can yield to drastically different wines. The wine data used in this project was taken from the UCI Machine Learning Repository. This project uses a variety of different libraries such as dplyr, tidyverse, and plotly. The summ() function from jtools was instrumental in presenting the regression data in a clean, readable format. To begin, the data must be loaded.
+
+```{r winedata, warning=FALSE, message=FALSE}
+red_data <- fread('winequality-red.csv')
+white_data <- fread('winequality-white.csv')
+
+names(red_data)
+
+nrow(red_data)
+nrow(white_data)
+```
+
+There are 1599 rows of red wine data as opposed to 4898 rows of white wine data. Nonetheless, both of these data sets will suffice in predicting wine quality. Every column in both sets of data has chemical quality measurements besides quality rating. Columns are the same in both sets of data. We will first explore the data and get a sense of the data sets that we are working with.
+
+## Quality Distribution
+
+```{r qualityhisto, warning=FALSE, message=FALSE}
+red_quality_histo <- ggplot(red_data, aes(x = quality)) +
+  geom_histogram(binwidth = 1, position = "dodge", color = "black", fill = "violet") +
+  labs(title = "Red Wine Quality Distribution")
+ggplotly(red_quality_histo)
+
+white_quality_histo <- ggplot(white_data, aes(x = quality)) +
+  geom_histogram(binwidth = 1, position = "dodge", color = "black", fill = "red") +
+  labs(title = "White Wine Quality Distribution")
+ggplotly(white_quality_histo)
+```
+
+Most red wines have a quality rating of 5 and 6, whereas most white wines are rated between 5 and 7. It's unclear why this might be the case. Possible theories could be that white wine is more favored among the wine tasters or that it's more difficult to grade a high quality red wine.
+
+## Quality vs Alcohol
+
+```{r alcoholscatter, warning=FALSE, message=FALSE}
+red_alcohol_scatter <- ggplot(data = red_data, aes(x = alcohol, y = quality)) +
+       geom_point(size=0.75) +
+       geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+       theme_bw() +
+       labs(title = 'Red Wine Quality Rating vs Alcohol Percentage')
+ggplotly(red_alcohol_scatter)
+
+white_alcohol_scatter <- ggplot(data = white_data, aes(x = alcohol, y = quality)) +
+       geom_point(size=0.75) +
+       geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+       theme_bw() +
+       labs(title = 'White Wine Quality Rating vs Alcohol Percentage')
+ggplotly(white_alcohol_scatter)
+```
+
+There is unfortunately not much to garner from these graphs. It seems like both shades of wine have a wide range of alcohol percentages no matter the rating. There are no red wines with a quality rating above 8 and very few white wines with a 9 quality rating. The regression lines allude to a slight positive correlation between quality rating and alcohol. However, it's tough to fully grasp the distribution of alcohol content in each wine, so we'll use a histogram instead.
+
+## Alcohol Distribution
+
+```{r alcoholhistogram, warning=FALSE, message=FALSE}
+red_alcohol_histo <- ggplot(red_data, aes(x=alcohol)) + geom_histogram(color="black", fill="lightgreen") +
+  labs(title = 'Red Wine Alcohol Distribution')
+ggplotly(red_alcohol_histo)
+
+white_alcohol_histo <- ggplot(white_data, aes(x=alcohol)) + geom_histogram(color="black", fill="lightblue") +
+  labs(title = 'White Wine Alcohol Distribution')
+ggplotly(white_alcohol_histo)
+```
+
+Red wine tends to have a lower alcohol content, whereas white wine alcohol content is more evenly distributed. This is actually somewhat strange as red wine tends to have a higher alcohol concentration.
+
+## Acidity Levels
+
+Let's now compare quality versus the three acidity variables in both shades of wine.
+
+```{r aciditychart, warning=FALSE, message=FALSE}
+red_acid_one <- ggplot(red_data, aes(`fixed acidity`, quality)) +
+  geom_jitter(aes(color = quality), size = 1) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "Red Wine Fixed Acidity")
+
+red_acid_two <- ggplot(red_data, aes(`volatile acidity`, quality)) +
+  geom_jitter(aes(color = quality), size = 1) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "Red Wine Volatile Acidity")
+
+red_acid_three <- ggplot(red_data, aes(`citric acid`, quality)) +
+  geom_jitter(aes(color = quality), size = 1) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "Red Wine Citric Acidity")
+
+white_acid_one <- ggplot(white_data, aes(`fixed acidity`, quality)) +
+  geom_jitter(aes(color = quality), size = 0.75) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "White Wine Fixed Acidity")
+
+white_acid_two <- ggplot(white_data, aes(`volatile acidity`, quality)) +
+  geom_jitter(aes(color = quality), size = 0.75) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "White Wine Volatile Acidity")
+
+white_acid_three <- ggplot(white_data, aes(`citric acid`, quality)) +
+  geom_jitter(aes(color = quality), size = 0.75) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(title = "White Wine Citric Acidity")
+
+grid.arrange(red_acid_one, red_acid_two, red_acid_three, ncol=2)
+grid.arrange(white_acid_one, white_acid_two, white_acid_three, ncol=2)
+```
+
+White wine tends to have a lower acidity level in general and higher level wines seem to have lower acidity. Red wine has a wider range of acidity, while higher quality red wines have lower volatile acidity and higher fixed acidity and citric acidity.
+
+## Free Sulfur Dioxide
+
+```{r sulfur_dioxide, warning=FALSE, message=FALSE}
+redtree <- red_data %>%
+  count(`free sulfur dioxide`)
+
+ggplot(redtree, aes(fill = `free sulfur dioxide`, area = n)) +
+  geom_treemap() + 
+  scale_fill_gradient(low = "gold", high = "darkgreen") +
+  labs(title = "Free Sulfur Dioxide in Red Wine")
+
+cat(sprintf("Min Free Sulfur Dioxide Content in Red Wine: %.0f\n", min(red_data$`free sulfur dioxide`)))
+cat(sprintf("Max Free Sulfur Dioxide Content in Red Wine: %.0f\n", max(red_data$`free sulfur dioxide`)))
+
+whitetree <- white_data %>%
+  count(`free sulfur dioxide`)
+
+ggplot(whitetree, aes(fill = `free sulfur dioxide`, area = n)) +
+  geom_treemap() + 
+  scale_fill_gradient(low = "gold", high = "darkgreen") +
+  labs(title = "Free Sulfur Dioxide in White Wine")
+
+cat(sprintf("Min Free Sulfur Dioxide Content in White Wine: %.0f\n", min(white_data$`free sulfur dioxide`)))
+cat(sprintf("Max Free Sulfur Dioxide Content in White Wine: %.0f\n", max(white_data$`free sulfur dioxide`)))
+```
+
+We can see that red wine has a much lower free sulfur dioxide range from 1 to 72 mg/dm^3^, while white wine's range is 2 to 289 mg/dm^3^. There are more red wines that are closer to the upper limit of red wine's free sulfur dioxide range, whereas most of the white wines are near the lower limit of the free sulfur dioxide white wine range. We've done basic analysis on many of the variables within the dataset, so we'll now begin working on the regression models.
+
+## Multivariate Regression - Red Wine
+
+```{r red_one, warning=FALSE, message=FALSE}
+red_model <- lm(formula = quality ~ ., data = red_data)
+
+summ(red_model)
+```
+
+The initial multivariate regression for red wine has five predictors with p-value \< 0.001 and two predictors with p-value \< 0.05. We will use these predictors to fine tune our model.
+
+```{r red_two, warning=FALSE, message=FALSE}
+red_model_two <- lm(formula = quality ~ `volatile acidity` + chlorides + `free sulfur dioxide` + `total sulfur dioxide` + pH + sulphates + alcohol, data = red_data)
+
+summ(red_model_two)
+```
+
+In our second multivariate regression of red wine, all of our predictors besides 'free sulfur dioxide' have continued to be extremely significant in predicting the quality of red wine. We'll remove 'free sulfur dioxide' from the model as it ceased to be significant.
+
+```{r red_three, warning=FALSE, message=FALSE}
+red_model_three <- lm(formula = quality ~ `volatile acidity` + chlorides + `total sulfur dioxide` + pH + sulphates + alcohol, data = red_data)
+
+summ(red_model_three)
+```
+
+Now all of our predictors are extremely significant with p-values \< 0.001. However, an R-squared value of 0.36 indicates that this model only explains about 36% of the variability. We can attribute some of this to the fact that quality is inherently subjective and decided by independent wine tasters. Models that try to predict human scores tend to have R-squares below 50%. We can also remove 'total sulfur dioxide' from the model as its coefficient seems to barely affect the predicted quality rating.
+
+```{r red_four, warning=FALSE, message=FALSE}
+red_model_four <- lm(formula = quality ~ `volatile acidity` + chlorides + pH + sulphates + alcohol, data = red_data)
+
+summ(red_model_four)
+```
+
+Both sulfur dioxide predictors increased our F-statistic dramatically while only slightly reducing our R^2^ value. Here is our prediction equation:
+
+$$\begin{equation}
+\begin{split}
+Red\;Wine\;Quality = 4.01 & - 1.07(volatile\;acidity) - 1.93(chlorides) - 0.42(pH) + 0.85(sulphates) + 0.31(alcohol)
+\end{split}
+\end{equation}$$
+
+This equation could potentially allow us to predict quality ratings for other "Vinho Verde" red wines as well. However, it's unlikely that this model would predict quality ratings for other red wines sold by different brands based only on "Vinho Verde" red wine data.
+
+We'll now plot the fitted values against the residuals to assess the goodness of fit for the model.
+
+```{r red_residuals_one, warning=FALSE, message=FALSE}
+plot(x = fitted(red_model_four), y = resid(red_model_four),
+     xlab = "Fitted Values", ylab = "Residuals", main = "Red Wine Model - Residuals vs Fitted Values") %>% abline(h = 0, col = "red")
+```
+
+This chart is hard to garner insight as it doesn't look like a typical residuals graph but it doesn't appear that there is any inherent pattern. There appears to be an equal amount of points above and below the y = 0 line. We'll plot the absolute value of the residuals against the fitted values as well to check for heteroskedasticity.
+
+```{r red_residuals_two, warning=FALSE, message=FALSE}
+plot(x = fitted(red_model_four), y = abs(resid(red_model_four)), 
+     xlab = "Fitted Values", ylab = "Absolute Value Residuals", main = "Red Wine Model - Absolute Value Residuals vs Fitted Values")
+```
+
+This graph doesn't seem to imply any heteroskedasticity as there doesn't appear to be any discernible pattern.
+
+## Multivariate Regression - White Wine
+
+```{r white_one, warning=FALSE, message=FALSE}
+white_model <- lm(formula = quality ~ ., data = white_data)
+
+summ(white_model)
+```
+
+There are only three predictors in our model that are insignificant so we will remove these predictors from our model.
+
+```{r white_two, warning=FALSE, message=FALSE}
+white_model_two <- lm(formula = quality ~ `fixed acidity` + `volatile acidity` + `residual sugar` + `free sulfur dioxide` + density + pH + sulphates + alcohol, data = white_data)
+
+summ(white_model_two)
+```
+
+It appears that 'free sulfur dioxide' is significant but the coefficient doesn't change the predicted quality rating, so we'll remove that predictor from the model as well.
+
+```{r white_three}
+white_model_three <- lm(formula = quality ~ `fixed acidity` + `volatile acidity` + `residual sugar` + density + pH + sulphates + alcohol, data = white_data)
+
+summ(white_model_three)
+```
+
+Our model appears to be getting more precise but there is a strange negative correlation between the intercept coefficient and density. This will surely impact our model's predictive capabilities. We'll use the vif() function from the 'car' package to calculate multicollinearity between the predictor variables.
+
+```{r vif_white_one, warning=FALSE, message=FALSE}
+vif(white_model_three)
+```
+
+Density has a very high VIF (variance inflation factor), indicating a high degree of multicollinearity. We'll remove density from the model and reevaluate the VIF values.
+
+```{r white_four, warning=FALSE, message=FALSE}
+white_model_four <- lm(formula = quality ~ `fixed acidity` + `volatile acidity` + `residual sugar` + pH + sulphates + alcohol, data = white_data)
+
+summ(white_model_four)
+```
+
+```{r vif_white_two}
+vif(white_model_four)
+```
+
+Removing density reduced the collinearity of all the other predictor values so it seems that density was negatively impacting the model. However, it also caused pH to be an insignificant predictor, so we'll remove it from the model.
+
+```{r white_five, warning=FALSE, message=FALSE}
+white_model_five <- lm(formula = quality ~ `fixed acidity` + `volatile acidity` + `residual sugar` + sulphates + alcohol, data = white_data)
+
+summ(white_model_five)
+```
+
+$$\begin{equation}
+\begin{split}
+White\;Wine\;Quality = 2.67 - 0.07(fixed\;acidity) - 2.10(volatile\;acidity) + 0.03(residual\;sugar) + 0.44(sulphates ) + 0.37(alcohol)
+\end{split}
+\end{equation}$$ 
+
+This equation is meant to predict quality of white wines sold by "Vinho Verde". Similar to the red wine model, it's unlikely that this model can be applied to other white wine brands.
+
+```{r white_residuals_one, warning=FALSE, message=FALSE}
+plot(x = fitted(white_model_five), y = resid(white_model_five),
+     xlab = "Fitted Values", ylab = "Residuals", main = "White Wine Model - Fitted vs Residuals") %>%
+  abline(h = 0, col = "red")
+```
+
+Similar to the red wine chart, it seems that the points are equally distributed above and below the line. We'll again plot the absolute value of the residuals against the fitted valuescheck for heteroskedasticity in this model.
+
+```{r white_residuals_two, warning=FALSE, message=FALSE}
+plot(x = fitted(white_model_five), y = abs(resid(white_model_five)), 
+     xlab = "Fitted Values", ylab = "Absolute Value Residuals", main = "White Wine Model - Absolute Value Residuals vs Fitted Values")
+```
+
+Similar to the red wine model, this chart doesn't imply any heteroskedasticity.
+
+## Conclusions
+
+We were seemingly able to develop regression models to predict the quality of red or white wine but there might be better statistical methods suited for predicting a discrete variable that exists as a scale such as quality. That doesn't necessarily mean that the regression models developed in this project don't have merit.
+
+## Data Set Citation
+
+P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.
